@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            background: white;
+            color: black;
+            margin: 20px;
+            font-family: "Times New Roman", Times, serif;
+        }
+
+        .auth-container, .forum-container, .settings-container {
+            max-width: 800px;
+            margin: 0;
+            margin-left: 0;
+        }
+
+        .login-message {
+            text-align: center;
+            padding: 40px 20px;
+            border: 1px solid black;
+            margin: 20px 0;
+            font-family: "Times New Roman", Times, serif;
+        }
+
+        .auth-form input {
+            width: 95%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid black;
+            font-family: "Times New Roman", Times, serif;
+        }
+
+        .auth-form {
+            border: 1px solid black;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .user-info {
+            display: none;
+            margin-bottom: 20px;
+        }
+
+        .post-form {
+            border: 1px solid black;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .post-form textarea {
+            width: 98%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid black;
+            font-family: "Times New Roman", Times, serif;
+        }
+
+        .post {
+            border: 1px solid black;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .profile-link {
+            display: block;
+            margin-bottom: 10px;
+            font-family: "Times New Roman", Times, serif;
+            color: black;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        button {
+            background: black;
+            color: white;
+            border: 1px solid black;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: "Times New Roman", Times, serif;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background: white;
+            color: black;
+        }
+
+        .settings-form textarea {
+            width: 98%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid black;
+            font-family: "Times New Roman", Times, serif;
+        }
+
+        .settings-container {
+            display: none;
+        }
+
+        .reply-form {
+            margin-top: 10px;
+            border-top: 1px solid black;
+            padding-top: 10px;
+        }
+
+        .reply-form textarea {
+            width: 98%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid black;
+            font-family: "Times New Roman", Times, serif;
+        }
+
+        .replies {
+            margin-left: 20px;
+            padding-left: 10px;
+            border-left: 1px solid black;
+        }
+
+        .post-header {
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid black;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container" id="auth-container">
+        <div class="auth-form">
+            <h2>Sign Up</h2>
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button onclick="signUp()">Sign Up</button>
+            <button onclick="toggleAuth()">Already have an account?</button>
+        </div>
+    </div>
+
+    <div class="login-message" id="login-message">
+        Please log in to join the discussion.
+    </div>
+
+    <div class="user-info" id="user-info">
+        <span>Logged in as: <span id="logged-user"></span></span>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <div class="forum-container" id="forum-container" style="display: none;">
+        <a class="profile-link" onclick="showProfile()">Edit Profile</a>
+        <div class="post-form">
+            <textarea id="post-content" placeholder="Write your post here..." rows="4"></textarea>
+            <button onclick="createPost()">Post</button>
+        </div>
+        <div id="posts" class="posts"></div>
+    </div>
+
+    <div class="settings-container" id="settings-container">
+        <button onclick="showForum()">Back to Forum</button>
+        <h2>Profile Settings</h2>
+        <div class="settings-form">
+            <label for="bio-text">Your Bio:</label>
+            <textarea id="bio-text" placeholder="Write something about yourself..."></textarea>
+            <button onclick="saveProfile()">Save Changes</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+        let currentUser = null;
+        let isLoginMode = false;
+
+        function toggleAuth() {
+            isLoginMode = !isLoginMode;
+            const authForm = document.querySelector('.auth-form');
+            if (isLoginMode) {
+                authForm.innerHTML = `
+                    <h2>Login</h2>
+                    <input type="text" id="username" placeholder="Username">
+                    <input type="password" id="password" placeholder="Password">
+                    <button onclick="login()">Login</button>
+                    <button onclick="toggleAuth()">Need to sign up?</button>
+                `;
+            } else {
+                authForm.innerHTML = `
+                    <h2>Sign Up</h2>
+                    <input type="text" id="username" placeholder="Username">
+                    <input type="password" id="password" placeholder="Password">
+                    <button onclick="signUp()">Sign Up</button>
+                    <button onclick="toggleAuth()">Already have an account?</button>
+                `;
+            }
+        }
+
+        async function signUp() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!username || !password) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message);
+                }
+
+                alert('Registration successful! Please log in.');
+                toggleAuth();
+            } catch (error) {
+                alert(error.message || 'Error signing up');
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message);
+                }
+
+                currentUser = await response.json();
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('login-message').style.display = 'none';
+                document.getElementById('user-info').style.display = 'block';
+                document.getElementById('forum-container').style.display = 'block';
+                document.getElementById('logged-user').textContent = currentUser.username;
+                
+                loadPosts();
+            } catch (error) {
+                alert(error.message || 'Error logging in');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('auth-container').style.display = 'block';
+            document.getElementById('login-message').style.display = 'block';
+            document.getElementById('user-info').style.display = 'none';
+            document.getElementById('forum-container').style.display = 'none';
+            document.getElementById('settings-container').style.display = 'none';
+        }
+
+        async function createPost() {
+            if (!currentUser) return;
+            
+            const content = document.getElementById('post-content').value.trim();
+            if (!content) return;
+
+            try {
+                const response = await fetch(`${API_URL}/posts`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content,
+                        authorId: currentUser.id
+                    })
+                });
+
+                if (!response.ok) throw new Error('Error creating post');
+
+                document.getElementById('post-content').value = '';
+                loadPosts();
+            } catch (error) {
+                alert('Error creating post');
+            }
+        }
+
+        async function createReply(postId) {
+            if (!currentUser) return;
+
+            const replyContent = document.getElementById(`reply-${postId}`).value.trim();
+            if (!replyContent) return;
+
+            try {
+                const response = await fetch(`${API_URL}/posts/${postId}/replies`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: replyContent,
+                        authorId: currentUser.id
+                    })
+                });
+
+                if (!response.ok) throw new Error('Error creating reply');
+
+                loadPosts();
+            } catch (error) {
+                alert('Error creating reply');
+            }
+        }
+
+        async function loadPosts() {
+            try {
+                const response = await fetch(`${API_URL}/posts`);
+                const posts = await response.json();
+                
+                const postsContainer = document.getElementById('posts');
+                postsContainer.innerHTML = posts.map(post => `
+                    <div class="post">
+                        <div class="post-header">
+                            <span>Posted by ${post.author.username}</span>
+                            <span>${new Date(post.createdAt).toLocaleString()}</span>
+                        </div>
+                        <div class="post-content">${post.content}</div>
+                        <div class="replies">
+                            ${post.replies.map(reply => `
+                                <div class="post">
+                                    <div class="post-header">
+                                        <span>Reply by ${reply.author.username}</span>
+                                        <span>${new Date(reply.createdAt).toLocaleString()}</span>
+                                    </div>
+                                    <div class="post-content">${reply.content}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="reply-form">
+                            <textarea id="reply-${post._id}" placeholder="Write a reply..." rows="2"></textarea>
+                            <button onclick="createReply('${post._id}')">Reply</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                alert('Error loading posts');
+            }
+        }
+
+        function showProfile() {
+            document.getElementById('forum-container').style.display = 'none';
+            document.getElementById('settings-container').style.display = 'block';
+            document.getElementById('bio-text').value = currentUser.bio || '';
+        }
+
+        function showForum() {
+            document.getElementById('forum-container').style.display = 'block';
+            document.getElementById('settings-container').style.display = 'none';
+        }
+
+        async function saveProfile() {
+            if (!currentUser) return;
+
+            const bio = document.getElementById('bio-text').value.trim();
+            
+            try {
+                const response = await fetch(`${API_URL}/users/${currentUser.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ bio })
+                });
+
+                if (!response.ok) throw new Error('Error updating profile');
+
+                currentUser.bio = bio;
+                alert('Profile updated successfully!');
+                showForum();
+            } catch (error) {
+                alert('Error updating profile');
+            }
+        }
+    </script>
+</body>
+</html>
